@@ -1,16 +1,17 @@
 endAR = 1; //target aspect ratio
-dir = getDirectory("Choose the directory with the tile-images");
-template_dir = File.openDialog("Choose the template-image");
+tile_dir = getDirectory("Choose the directory with the tile-images");
+template_dir = File.openDialog("Pick the template-image");
 
-Dialog.create("Tile resolution");
-Dialog.addMessage("Please provided the desired resolution of individual tiles in the mosaic");
-endwidth = Dialog.getNumber();
-Dialog.addNumber("resolution", 250, 0, 4, "pixels");
-Dialog.show();
 
-setBatchMode(true);
+sourcedir = File.getDirectory(tile_dir);
+outdir = sourcedir + File.getNameWithoutExtension(tile_dir) + "_sorted\\";
+
+Files = getFileList(tile_dir);
+
+tile_image_number = Files.length + 1;
+//implement a check for just image files in the tile_dir?
+
 open(template_dir);
-
 //get all initial data from the template-image
 original = getTitle();
 
@@ -20,6 +21,85 @@ getDimensions(width, height, channels, slices, frames);
 ori_width = width;
 ori_height = height;
 
+ori_resolution = ori_width * ori_height;
+
+
+template_resolution_dialog();
+
+//make the template resolution dialog recursive, so the user can iteratively crop and scale the template
+function template_resolution_dialog() {
+	
+	selectWindow(original);
+	//call the dimensions of the original image
+	getDimensions(width, height, channels, slices, frames);
+	ori_width = width;
+	ori_height = height;
+	
+	ori_resolution = ori_width * ori_height;
+
+	//open dialog window to get the desired template image resolution (which is the same as the amount of tile images that will be used)
+	Dialog.create("Template resolution");
+	Dialog.addMessage("Your template image currently has a height of " + ori_height + " pixels and a width of " + ori_width + " pixels.");
+	Dialog.addMessage("That results in a template resolution of " + ori_resolution + " pixels and would require as many tile pixels.");
+	if (tile_image_number >= ori_resolution) {
+		Dialog.addMessage("You have provided " + tile_image_number + " tile image(s), which is enough for the template resolution, please procede by pressing OK.");
+		Dialog.show();
+	}
+	else {
+		Dialog.addMessage("You have provided " + tile_image_number + " tile images, which is not enough for the template resolution.");
+		Dialog.addMessage("You can either: provide more tile images or crop your template image, rescale it, or both, so you reach a final resolution of " + tile_image_number + " or less.");
+		
+		possible_actions = newArray("Provide Tiles", "Crop Template", "Rescale Template");
+		Dialog.addRadioButtonGroup("Action", possible_actions, 1, 3, "Provide Tiles");
+		Dialog.show();
+		
+		fix_resolution_action = Dialog.getRadioButton();
+		
+		//wait for the user to add more files and reindex the tile tile_dir
+		if (fix_resolution_action == "Provide Tiles") {
+			Dialog.create("Provide Tiles");
+			Dialog.addMessage("Please add more images to the tile image folder under: " + tile_dir + " and press OK once finished");
+			Dialog.show();
+			
+			Files = getFileList(tile_dir);
+			
+			tile_image_number = Files.length + 1;
+			
+			template_resolution_dialog();
+		}
+		
+		//waits for the user to make a rectangular selection and then crop the image to that selection
+		if (fix_resolution_action == "Crop Template") {
+			while(selectionType() != 0) {// 0 is the number for if there is a rectangular selection present
+				selectWindow(original);
+				waitForUser("Please create a rectangular selection in your image and press OK, your image will be cropped to that selection");
+			}
+			
+			run("Crop");
+			template_resolution_dialog();
+		}
+		
+		if (fix_resolution_action == "Rescale Template") {
+			scaling_factor = floor(tile_image_number / ori_resolution * 10000) / 10000;
+			
+
+			Dialog.create("Rescale Template");
+			Dialog.addMessage("To achieve a sufficiently low resolution the template needs to be scaled by " + scaling_factor + ".");
+			Dialog.addSlider("Scale by:", 0.0001, 1, scaling_factor);
+			Dialog.show();
+			
+			Dialog.getNumber();
+			new_ori_height = ori_height * scaling_factor;
+			new_ori_width = ori_width * scaling_factor;
+			run("Scale...", "x=" + scaling_factor + " y=" + scaling_factor + " interpolation=Bilinear average");
+			
+			template_resolution_dialog();
+		}
+	}
+}
+
+
+
 //collect the pixel values of the template-image
 pixel_list = newArray();
 
@@ -28,13 +108,16 @@ for (i = 0; i < height; i++) {
 		pixel_list[i*width+j]=getPixel(j, i);
 	}
 }
-
-
 close(original);
 
-sourcedir = File.getDirectory(dir);
-outdir = sourcedir + File.getNameWithoutExtension(dir) + "_sorted\\"
-Files = getFileList(dir);
+Dialog.create("Tile resolution");
+Dialog.addMessage("Please provided the desired resolution of individual tiles in the mosaic");
+endwidth = Dialog.getNumber();
+Dialog.addNumber("resolution", 250, 0, 4, "pixels");
+Dialog.show();
+setBatchMode(true);
+
+
 
 //create empty arrays in which the tile-image data will be stored
 image_list = newArray(Files.length);
@@ -51,7 +134,7 @@ File.makeDirectory(outdir);
 
 //cycle through the tile-images, crop them if they do not have an aspect ratio of 1
 for (i = 0; i < Files.length; i++) {
-	open(dir + Files[i]);
+	open(tile_dir + Files[i]);
 	run("8-bit");
 	getDimensions(width, height, channels, slices, frames);
 	aspectRatio=width/height;
@@ -60,7 +143,7 @@ for (i = 0; i < Files.length; i++) {
 		distance_x = width/2-endAR*height/2;
 		xpoints = newArray(distance_x, width-distance_x, width-distance_x, distance_x);
 		ypoints = newArray(0,0,height,height);
-		makeSelection("polygon", xpoints, ypoints);
+		makeSelection(0, xpoints, ypoints); // 0 is the selection type for rectangle
 		run("Crop");
 		run("Select None");
 	}
@@ -69,8 +152,8 @@ for (i = 0; i < Files.length; i++) {
 		if(aspectRatio<endAR){
 			distance_y = height/2-width/endAR/2;
 			xpoints = newArray(0,width,width,0);
-			ypoints = newArray(distance_y, distance_y, height-distance_y, height-distance_y);
-			makeSelection("polygon", xpoints, ypoints);
+			ypoints = newArray(distance_y, distance_y, height - distance_y, height - distance_y);
+			makeSelection(0, xpoints, ypoints); //see above
 			run("Crop");
 			run("Select None");
 		}
