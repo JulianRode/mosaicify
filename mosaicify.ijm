@@ -8,8 +8,22 @@ outdir = sourcedir + File.getNameWithoutExtension(tile_dir) + "_sorted\\";
 
 Files = getFileList(tile_dir);
 
-tile_image_number = Files.length + 1;
-//implement a check for just image files in the tile_dir?
+check_for_tile_extensions = newArray();
+for (i = 0; i < Files.length; i++) {
+	if(endsWith(toLowerCase(Files[i]), ".png") || endsWith(toLowerCase(Files[i]), ".jpg") || endsWith(toLowerCase(Files[i]), ".tif") || endsWith(toLowerCase(Files[i]), ".tiff")) {
+		
+	}
+	else {
+		check_for_tile_extensions = Array.reverse(Array.concat(check_for_tile_extensions,i)); 
+	}
+}
+
+for (i = 0; i < check_for_tile_extensions.length; i++) {
+	Files = Array.deleteIndex(Files, check_for_tile_extensions[i]);
+}
+
+tile_image_number = Files.length;
+
 
 open(template_dir);
 //get all initial data from the template-image
@@ -63,7 +77,7 @@ function template_resolution_dialog() {
 			
 			Files = getFileList(tile_dir);
 			
-			tile_image_number = Files.length + 1;
+			tile_image_number = Files.length;
 			
 			template_resolution_dialog();
 		}
