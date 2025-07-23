@@ -2,12 +2,25 @@ endAR = 1; //target aspect ratio
 tile_dir = getDirectory("Choose the directory with the tile-images");
 template_dir = File.openDialog("Pick the template-image");
 
+//check whether template image is actually an image and reprompt if not 
+template_not_image = true;
+while (template_not_image) {
+	if(endsWith(toLowerCase(template_dir), ".png") || endsWith(toLowerCase(template_dir), ".jpg") || endsWith(toLowerCase(template_dir), ".tif") || endsWith(toLowerCase(template_dir), ".tiff")) {
+		template_not_image = false;
+		break;
+	}
+	else {
+		template_dir = File.openDialog("The template image must be .png, .jpg, .tif or .tiff");
+	}
+}
+
 
 sourcedir = File.getDirectory(tile_dir);
 outdir = sourcedir + File.getNameWithoutExtension(tile_dir) + "_sorted\\";
 
 Files = getFileList(tile_dir);
 
+//check, which files do not have a valid image type extension
 check_for_tile_extensions = newArray();
 for (i = 0; i < Files.length; i++) {
 	if(endsWith(toLowerCase(Files[i]), ".png") || endsWith(toLowerCase(Files[i]), ".jpg") || endsWith(toLowerCase(Files[i]), ".tif") || endsWith(toLowerCase(Files[i]), ".tiff")) {
@@ -18,6 +31,7 @@ for (i = 0; i < Files.length; i++) {
 	}
 }
 
+//remove files that are not images from the list of tiles to be used
 for (i = 0; i < check_for_tile_extensions.length; i++) {
 	Files = Array.deleteIndex(Files, check_for_tile_extensions[i]);
 }
